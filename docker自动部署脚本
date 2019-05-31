@@ -1,0 +1,66 @@
+ 1、停止、删除容器，删除镜像 shell 脚本
+#!/bin/bash
+result=$(docker ps | grep "192.168.3.73:5000/xc-eureka-server")
+if [[ "$result" != "" ]]
+then
+echo "stop xc-eureka-server"
+docker stop xc-eureka-server
+fi
+result1=$(docker ps -a | grep "192.168.3.73:5000/xc-eureka-server")
+if [[ "$result1" != "" ]]
+then
+echo "rm xc-eureka-server"
+docker rm xc-eureka-server
+fi
+result2=$(docker images | grep "192.168.3.73:5000/xc-eureka-server")
+if [[ "$result2" != "" ]]
+then
+echo "192.168.3.73:5000/xc-eureka-server:0.0.1-SNAPSHOT"
+docker rmi 192.168.3.73:5000/xc-eureka-server:0.0.1-SNAPSHOT
+fi
+
+2、使用maven 构建镜像
+clean package  -f  xc-eureka-server/pom_docker_registry.xml  -DskipTests  docker:build
+
+3、拉取镜像，创建容器，启动容器
+docker run --name xc-eureka-server -p 50101:9000 -idt 192.168.3.73:5000/xc-eureka-server :0.0.1-SNAPSHOT 
+docker logs -f xc-eureka-server 
+
+
+
+手动创建 镜像
+Dockerfile
+
+FROM java:8
+ENV ARTIFACTID xc-eureka-server
+ENV ARTIFACTVERSION 0.0.1-SNAPSHOT
+ENV HOME_PATH /home
+WORKDIR $HOME_PATH
+ADD /$ARTIFACTID-$ARTIFACTVERSION.jar $HOME_PATH/$ARTIFACTID.jar
+ENTRYPOINT ["java", "-jar", "xc-eureka-server.jar"]
+
+docker build -t xc-eureka-server:0.0.1-SNAPSHOT .
+docker create --name xc-eureka-server-test -t -p 50101:9000 -e PORT=9000 -e EUREKA_SERVER=http://192.168.3.73:9000/eureka/  xc-eureka-server:0.0.1-SNAPSHOT
+
+C:\Users\Administrator\Desktop\apache-maven-3.6.1\bin   mvn -f pom_docker.xml clean package -DskipTests docker:build
+/root/maven/bin/mvn -f xc-eureka-server/pom_docker_registry.xml clean package -DskipTests docker:build
+
+
+
+生成密钥
+ssh-keygen -t rsa -C "hu.beibeijin@163.com"
+
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC8CP2zmtu/mouVORVQpVydnxep2G8aNzghat4AR1Vi2CLR/25S3az8BfJiYvjH68X+kkr0Tk+wv5ub7fxQ0MYJkr10/bOGSlovMR1CU1T85iMa2oA+mQimghUik5DeN01EVnRL/WknrTJCdgjJrh/5z2lJWNDXrXh/qQthM6MowZp3DdqP4eRG8z4xoWYkCfRGNz/zsL79Xy4rLWuMp8S8OQAojMqTlQQMn4dxm6EUx4DwA5tkGZtl0RupN+iDzgUDu0g8i9CjqJPP90sfKTMNd4P3t3teGE0gj/eiAVThkZveLz7xOb8Fm6s8RB34vlhiFWu4/JmDKVUPga/9nAkD hu.beibeijin@163.com
+
+将虚拟机的地址固定
+联接方式为桥接
+
+BOOTPROTO=dhcp的值改为static，并在最后面加上：
+
+DNS1=114.114.114.114         --dns地址
+IPADDR=192.168.49.128      --需要设置的ip地址
+NETMASK=255.255.255.0   --子网掩码
+GATEWAY=192.168.49.1     --网关
+
+
+

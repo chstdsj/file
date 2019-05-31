@@ -1,0 +1,218 @@
+# 微服务自动化部署
+
+本文是基于docker来写的 
+
+环境：centos7.5
+
+安装 docker:  yum install docker-ce -y
+
+启动：service docker start 或者 systemctl  start docker
+
+### 一、安装代码仓库：
+	可以使用github、码云 等，如果使用第三方仓库，可跳过此步	
+	这里使用gitlab来创建 私有仓库
+	gitlab 需要依赖redis和postgresql
+	
+	1、安装 postgresql
+	    拉取镜像：docker pull sameersbn/postgresql
+	    安装命令：docker run  -d --privileged=true -e 'DB_NAME=gitlabhq_production' -e 'DB_USER=gitlab' -e 'DB_PASS=password' -e 'DB_EXTENSION=pg_trgm' -v  /home/root/opt/postgresql/data:/var/lib/postgresql --name postgresql sameersbn/postgresql
+
+	2、安装 redis
+	    拉取镜像：docker pull sameersbn/redis
+	    安装命令：docker run --name redis -d --privileged=true -v /home/root/opt/redis/data:/var/lib/redis sameersbn/redis
+
+	3、安装 gitlab
+	    拉取镜像：docker pull gitlab/gitlab-ce:latest
+	    安装命令：docker run --name gitlab -d --link postgresql:postgresql --link redis:redisio --hostname 192.168.3.73 -p 10022:22 -p 8899:80 -e 'GITLAB_PORT=8899' -e 'GITLAB_SSH_PORT=10022' -e 'GITLAB_SECRETS_DB_KEY_BASE=long-and-random-alpha-numeric-string' -e 'GITLAB_SECRETS_SECRET_KEY_BASE=long-and-random-alpha-numeric-string' -e 'GITLAB_SECRETS_OTP_KEY_BASE=long-and-random-alpha-numeric-string' -e 'GITLAB_HOST=192.168.3.73' -e 'SMTP_AUTHENTICATION=login' -v /home/root/opt/gitlab/data:/home/git/data docker.io/gitlab/gitlab-ce
+	
+	4、查看已运行的容器
+	    执行命令：docker ps	
+	    [root@localhost root]# docker ps
+CONTAINER ID        IMAGE                  COMMAND                 CREATED             STATUS                            PORTS                                                  NAMES
+930ca9ad7290        gitlab/gitlab-ce       "/assets/wrapper"       10 seconds ago      Up 8 seconds (health: starting)   443/tcp, 0.0.0.0:10022->22/tcp, 0.0.0.0:8899->80/tcp   gitlab
+e8b8da0946a7        sameersbn/redis        "/sbin/entrypoint.sh"   9 minutes ago       Up 9 minutes                      6379/tcp                                               redis
+5b44d96c183f        sameersbn/postgresql   "/sbin/entrypoint.sh"   10 minutes ago      Up 10 minutes                     5432/tcp                                               postgresql	    	
+	
+	5、打开浏览器即可登录gitlab
+	    http://192.168.3.73:8899/       第一次登录需要输入密码，用户名是root
+		
+	   使用刚输入的密码来登录，其他使用与github类似
+
+### 二、安装持续集成工具 jenkinsci
+	1、安装 jenkinsci
+	    拉取镜像：docker pull jenkinsci/blueocean
+	    安装命令：docker create --name jenkins -u root -p 8889:8080 --privileged=true -v /home/root/jenkins/data:/var/jenkins_home -v /var/run/docker.sock:/var/run/docker.sock -v /home/root/jenkins:/home docker.io/jenkinsci/blueocean	
+		
+	2、启动：docker start jenkins
+	
+	3、登录： 在window中打开浏览器输入服务器地址+端口号, 我这里服务器ip: 192.168.3.73
+	    http://192.168.3.73:8889, 提示输入密码，密码输入正确后会提示是否继续使用原账号，此时可以输入自己的账号和密码，以后就用自己的账号登录，原账号失效
+		
+	    获取密码的方法有两种
+	    方式一：docker logs  jenkins 可以看输出日志，里面有
+	    方式二：执行以下两条命令
+		docker exec ‐it jenkins /bin/bash
+		cat /var/jenkins_home/secrets/initialadminPassword   
+	
+	4、配置jenkinsci
+	    成功登录后，会提示配置jenkinsci，此时可选择默认或者自定义(建议使用默认)
+	
+### 三、配置环境
+	1、配置环境：maven、jdk、git
+	    使用默认配置，git已安装，需要手动安装 maven和jdk
+	    1.1 maven: 将maven 复制到容器中，指定目录
+		
+		maven 下载地址：https://www-us.apache.org/dist/maven/maven-3/3.6.1/binaries/apache-maven-3.6.1-bin.tar.gz
+		
+		docker cp /root/maven3 jenkins:/home
+		配置maven,  首页Jenkins -> 系统管理 -> 全局工具配置 -> maven
+		默认 settings 提供: 文件系统中的settings文件
+		    文件路径：/home/maven3/conf/settings.xml
+		默认全局 settings 提供	: 文件系统中的settings文件
+		    文件路径：/home/maven3/conf/settings.xml
+		
+	    1.2 安装jdk:将jdk复制到容器中，指定目录，并配置jdk环境
+		jdk配置， 首页Jenkins -> 系统管理 -> 全局工具配置 -> JDK
+		    别名：jdk1.8
+		    JAVA_HOME: /usr/lib/jvm/java-1.8-openjdk
+	    
+	    配置后保存即可
+	
+	2、ssh 远程配置
+	    首页Jenkins -> 系统管理 -> 插件管理
+	    2.1 可选插件，搜索 ssh, 点击安装，在已安装中查看ssh是否已经安装
+	    2.2 首页Jenkins -> 系统管理 -> 全局安全配置
+	        SSH Server 配置，指定端口 22 保存
+	    2.3 配置凭证：首页Jenkins-> 凭据
+	        范围：全局
+	        用户名：root 
+	        密码：root
+	        ID: 001
+	    	描述：远程主机的登录配置
+	    2.4 首页Jenkins -> 系统管理 -> 系统配置
+	         ssh插件安装后，会在这里显示 ssh remote hosts, 
+	         远程主机hostname：192.168.3.73
+	    	 端口: 22
+	    	 凭证: root(此处的值是上一步配置的)
+	    	 serverAliveInterval: 0 
+	    	 timeout: 0
+	3、创建任务
+	    首页Jenkins -> 新建任务
+	    	输入任务名称：ssh retome
+	    	项目类型选择第一个：构建一个自由风格的软件项目
+	    确定进入配置界面，选择构建标签
+            ssh site root@192.168.3.73:22
+	        command: cd /root
+                     ls
+	    保存						 
+	4、测试 任务
+	    回到首页，在任务列表中会看到刚创建的任务，点击构建按钮执行构建
+	    完成构建，点击名称构建历史，会看到构建列表，点击 右则的控制台按钮，可以看到命令的执行结果
+	    Started by user xia
+        Building in workspace /var/jenkins_home/workspace/ssh remote
+        [SSH] script:
+
+        cd /root
+        ls
+
+
+        [SSH] executing...
+        anaconda-ks.cfg
+        apache-maven-3.6.1-bin.tar.gz
+        get-docker.sh
+        jdk-8u201-linux-x64.tar.gz
+        maven3
+
+        [SSH] completed
+        [SSH] exit-status: 0
+
+        Finished: SUCCESS
+		
+### 四、创建docker私有仓库
+	1、创建私有仓库容器
+	    接取镜像：docker pull registry
+	    安装命令：docker run --name docker-registry -d -p 5000:5000 registry
+	2、查看 
+	     访问 http://192.168.3.73:5000/v2/_catalog 	 结果为：
+	    {
+	        "repositories": [ ]
+	    }
+	    说明 仓库 为空，还没有镜像
+	
+	3、默认docker-registry只允许https提交镜像，如下配置使docker-registry支持http
+	    在/etc/docker下，创建daemon.json文件，写入：
+	    { "insecure-registries": ["192.168.3.73:5000"]}
+		
+	    重启docker: systemctl restart docker
+		
+### 五、gitlab配置jenkins公钥
+	1、进入jenkins：docker exec -it jenkins /bin/bash
+	2、生成公钥：ssh-keygen -t rsa -C "hu.beibeijin@163.com"
+	3、查看公钥：cat /root/.ssh/id_rsa.pub
+	4、将公司复制到gitlab的 sshkeys中，保存
+	
+### 六、配置webhook，当gitlab有代码提交会自动通知jenkins构建	
+
+### centos7 使用 firewalld 打开端口
+	永久打开 80 端口（--permanent ）
+	firewall-cmd --zone=public --add-port=80/tcp --permanent 
+	重新载入
+	firewall-cmd --reload
+	查看
+	firewall-cmd --zone= public --query-port=80/tcp
+	删除
+	firewall-cmd --zone= public --remove-port=80/tcp --permanent
+
+	1、firewalld的基本使用
+	   启动： systemctl start firewalld
+	   关闭： systemctl stop firewalld
+	   查看状态： systemctl status firewalld 
+	   开机禁用  ： systemctl disable firewalld
+	   开机启用  ： systemctl enable firewalld
+	   
+	2.systemctl是CentOS7的服务管理工具中主要的工具，它融合之前service和chkconfig的功能于一体。
+	   动一个服务：systemctl start firewalld.service
+	   关闭一个服务：systemctl stop firewalld.service
+	   重启一个服务：systemctl restart firewalld.service
+	   显示一个服务的状态：systemctl status firewalld.service
+	   在开机时启用一个服务：systemctl enable firewalld.service
+	   在开机时禁用一个服务：systemctl disable firewalld.service
+	   查看服务是否开机启动：systemctl is-enabled firewalld.service
+	   查看已启动的服务列表：systemctl list-unit-files|grep enabled
+	   查看启动失败的服务列表：systemctl --failed
+
+	3.配置firewalld-cmd
+
+	   查看版本： firewall-cmd --version
+	   查看帮助： firewall-cmd --help
+	   显示状态： firewall-cmd --state
+	   查看所有打开的端口： firewall-cmd --zone=public --list-ports
+	   更新防火墙规则： firewall-cmd --reload
+	   查看区域信息:  firewall-cmd --get-active-zones
+	   查看指定接口所属区域： firewall-cmd --get-zone-of-interface=eth0
+	   拒绝所有包：firewall-cmd --panic-on
+	   取消拒绝状态： firewall-cmd --panic-off
+	   查看是否拒绝： firewall-cmd --query-panic
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

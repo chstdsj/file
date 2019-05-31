@@ -1,0 +1,152 @@
+# docker 学习笔记
+docker 仓库：https://hub.docker.com/
+### 一、安装要求
+ 安装环境：CentOS Linux release 7.5.1804 (Core) 
+ 
+ Docker 运行在 CentOS7 上，要求系统为64位、系统内核版本为 3.10 以上。
+ 
+ - 查看系统内容命令：uname -a
+ 结果：Linux localhost.localdomain 3.10.0-862.el7.x86_64 #1 SMP Fri Apr 20 16:44:24 UTC 2018 x86_64 x86_64 x86_64 GNU/Linux
+
+ - 查看系统内容命令：cat /proc/version
+ 结果：Linux version 3.10.0-862.el7.x86_64 (builder@kbuilder.dev.centos.org) (gcc version 4.8.5 20150623 (Red Hat 4.8.5-28) (GCC) ) #1 SMP Fri Apr 20 16:44:24 UTC 2018
+ 
+ - 查看系统内容命令：uname -r 
+ 结果：3.10.0-862.el7.x86_64
+ 
+ （推荐第三种方式）
+ -
+
+### 二、安装Docker
+ （从 2017 年 3 月开始 docker 在原来的基础上分为两个分支版本: Docker CE 和 Docker EE。）
+ 
+ 清除docker
+ 
+	yum remove docker \
+                  docker-client \
+                  docker-client-latest \
+                  docker-common \
+                  docker-latest \
+                  docker-latest-logrotate \
+                  docker-logrotate \
+                  docker-selinux \
+                  docker-engine-selinux \
+                  docker-engine
+ 
+ 这里使用社区版：Docker-ce
+ 
+ 1、安装需要的系统工具
+ 
+    命令：yum install -y yum-utils device-mapper-persistent-data lvm2
+ 2、添加软件源信息
+ 
+    命令：yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+ 3、更新源
+ 
+    命令：yum makecache fast
+ 4、安装
+ 
+    命令：yum -y install docker-ce
+ 5、启动
+    
+    命令: systemctl start docker
+ 
+  
+### 三、使用脚本安装 Docker
+  1、把系统更新到最新: yum update
+  2、执行 Docker 安装脚本
+    
+    命令： 1、curl -fsSL https://get.docker.com -o get-docker.sh
+          2、sh get-docker.sh
+  3、启动 Docker 
+    
+    命令：systemctl start docker
+  4、运行
+    
+    命令：docker run hello-world
+  
+  备注：hello-world为容器名称，如果不存在，会从docker镜像中心自动下载
+ 
+  *docker安装完成后，可使用 docker -h 命令查看其用法*
+ -
+### 四、镜像加速
+  在  /etc/docker/daemon.json 文件中添加如下内容：
+    
+    {
+      "registry-mirrors": ["https://registry.docker-cn.com","http://hub-mirror.c.163.com"]
+    }
+  
+	该配置一定要添加，要不然在jenkins中安装插件时会报错(解析主机名 updates.jenkins.io. 失败)
+
+### 五、删除 Docker
+    
+    命令：yum remove docker-ce 或者 rm -rf /var/lib/docker
+    
+## 常用命令
+  
+  docker search 镜像名称，会从镜像库查找对应名称的镜像
+  
+  docker pull 镜像名称，从镜像库下载指定镜像
+  
+  docker images 查看所有本地镜像
+  
+  docker rmi 镜像名称或镜像id, 删除本地镜像
+  
+  docker run -d 镜像名称，以进程的形式从指定的镜像运行镜像，每次都会产生一个新的容器
+  
+  docker ps 查看运行的容器
+  
+  docker ps -a 查看所有容器
+  
+  docker [container] start 容器名称或容器id，运行指定的容器
+  
+  docker [container] restart 容器名称或容器id，重启指定的容器
+  
+  docker stop 容器名称或容器id，停止容器
+  
+  docker [container] rm 容器名称或容器id，删除容器
+  
+  docker logs 容器名称或容器id，查看容器日志
+  
+  docker port 容器名称或容器id，查看指定容器端口映射到本机的端口
+
+    例子:
+        docker pull training/webapp (载入python 镜像)
+        docker run -d -P training/webapp python app.py (用镜像创建一个容器并运行python web程序，并把端口映射到本地) 
+
+
+xshell安装 上传下载 命令：
+		
+	yum -y install lrzsz
+	rz 上传
+	sz 下载
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

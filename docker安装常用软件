@@ -1,0 +1,19 @@
+# docker 安装常用工具
+### 一、安装nginx
+	1、查询官方镜像：docker search nginx	
+	2、拉取镜像：docker pull nginx
+	3、新建文件夹：mkdir -p ~/nginx/www  ~/nginx/logs ~/nginx/conf
+	4、创建容器：docker run -d nginx, 创建一个容器，将容器中的nginx.conf复制到第三步创建的conf中。
+		docker cp 907dbd4cb901:/etc/nginx/nginx.conf   ~/nginx/conf/
+	5、创建容器：docker run -d -p 8082:80 --name nginx -v ~/nginx/www:/usr/share/nginx/html -v ~/nginx/conf/nginx.conf:/etc/nginx/nginx.conf -v ~/nginx/logs:/var/log/nginx nginx
+	6、在nginx/www路径下新建index.html，输入内容
+	7、通过浏览器访问8082端口，可看到在6中输入的内容
+
+### 二、安装mysql
+
+	1、查询镜像：docker search mysql
+	
+	
+	
+	
+	
